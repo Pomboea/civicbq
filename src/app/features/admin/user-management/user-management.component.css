@@ -1,0 +1,13 @@
+.card {
+  border-radius: 10px;
+}
+.table th {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.table td {
+  vertical-align: middle;
+}
+.btn-group .btn {
+  padding: 0.2rem 0.5rem;
+}

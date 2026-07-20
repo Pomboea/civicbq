@@ -1,0 +1,35 @@
+.card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+.chat-messages {
+  height: 400px;
+  overflow-y: auto;
+  background: #fafafa;
+}
+.chat-messages::-webkit-scrollbar {
+  width: 5px;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+.message-bubble {
+  max-width: 380px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.user-message .message-bubble {
+  border-bottom-right-radius: 4px !important;
+}
+.assistant-message .message-bubble {
+  border-bottom-left-radius: 4px !important;
+}
+.quick-reply-btn {
+  font-size: 0.8rem;
+  white-space: normal;
+  text-align: left;
+}
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+}

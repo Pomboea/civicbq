@@ -1,0 +1,86 @@
+<div class="login-container">
+  <div class="card shadow-lg border-0" style="max-width: 450px; width: 100%;">
+    <div class="card-body p-5">
+      <div class="text-center mb-4">
+        <i class="bi bi-building text-primary" style="font-size: 3rem;"></i>
+        <h3 class="fw-bold mt-2">CivicBQ</h3>
+        <p class="text-muted">Gestión de PQR Ciudadanas</p>
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" *ngIf="!loading">
+        <div class="alert alert-danger py-2" *ngIf="errorMessage">
+          <i class="bi bi-exclamation-triangle me-1"></i>{{ errorMessage }}
+        </div>
+
+        <div class="mb-3">
+          <label for="username" class="form-label">Usuario</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person"></i></span>
+            <input
+              type="text"
+              class="form-control"
+              id="username"
+              formControlName="username"
+              placeholder="Ingresa tu usuario"
+              [class.is-invalid]="loginForm.get('username')?.invalid && loginForm.get('username')?.touched"
+            >
+          </div>
+          <div class="invalid-feedback" *ngIf="loginForm.get('username')?.invalid && loginForm.get('username')?.touched">
+            El usuario debe tener al menos 3 caracteres
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label for="password" class="form-label">Contraseña</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input
+              type="password"
+              class="form-control"
+              id="password"
+              formControlName="password"
+              placeholder="Ingresa tu contraseña"
+              [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+            >
+          </div>
+          <div class="invalid-feedback" *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+            La contraseña debe tener al menos 4 caracteres
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 py-2 mb-3" [disabled]="loginForm.invalid">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión
+        </button>
+      </form>
+
+      <div class="text-center" *ngIf="loading">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="text-muted">Iniciando sesión...</p>
+      </div>
+
+      <hr>
+      <p class="text-center text-muted small mb-2">Acceso rápido para demostración</p>
+      <div class="d-grid gap-2">
+        <button class="btn btn-outline-danger btn-sm" (click)="quickLogin('admin')">
+          <i class="bi bi-shield-lock me-1"></i> Admin
+        </button>
+        <button class="btn btn-outline-warning btn-sm" (click)="quickLogin('supervisor')">
+          <i class="bi bi-eye me-1"></i> Supervisor
+        </button>
+        <button class="btn btn-outline-info btn-sm" (click)="quickLogin('operador')">
+          <i class="bi bi-tools me-1"></i> Operador
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" (click)="quickLogin('ciudadano')">
+          <i class="bi bi-person me-1"></i> Ciudadano
+        </button>
+      </div>
+
+      <div class="mt-4 p-3 bg-light rounded">
+        <p class="mb-1 small fw-bold">Credenciales de prueba:</p>
+        <p class="mb-0 small text-muted">admin / admin123 | supervisor / sup123 | operador / ope123 | ciudadano1 / ciu123</p>
+      </div>
+    </div>
+  </div>
+</div>

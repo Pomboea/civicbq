@@ -1,0 +1,14 @@
+.card {
+  border-radius: 10px;
+  transition: transform 0.2s;
+}
+.card:hover {
+  transform: translateY(-2px);
+}
+.card-header {
+  border-radius: 10px 10px 0 0 !important;
+}
+.progress {
+  border-radius: 4px;
+  background-color: #e9ecef;
+}

@@ -1,0 +1,42 @@
+:host {
+  display: block;
+  width: 240px;
+  min-height: calc(100vh - 56px);
+  background: #f8f9fa;
+  border-right: 1px solid #dee2e6;
+  position: sticky;
+  top: 56px;
+}
+.sidebar {
+  height: 100%;
+}
+.sidebar-header {
+  border-bottom: 1px solid #e9ecef;
+}
+.nav-link {
+  color: #495057;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 0;
+  transition: all 0.2s;
+}
+.nav-link:hover {
+  background-color: #e9ecef;
+  color: #0d6efd;
+}
+.nav-link.active {
+  background-color: #0d6efd;
+  color: white;
+  font-weight: 500;
+}
+.nav-link i {
+  font-size: 1rem;
+}
+.sidebar-section-label {
+  padding: 0.5rem 1rem 0.3rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #6c757d;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}

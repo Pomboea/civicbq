@@ -1,0 +1,12 @@
+.card {
+  border-radius: 10px;
+}
+.comment-item:last-child {
+  border-bottom: none !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+.badge {
+  font-size: 0.8rem;
+  padding: 0.4em 0.7em;
+}

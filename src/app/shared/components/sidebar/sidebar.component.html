@@ -1,0 +1,35 @@
+<div class="sidebar d-flex flex-column">
+  <div class="sidebar-header text-center py-3">
+    <i class="bi bi-shield-check text-primary" style="font-size: 2rem;"></i>
+    <h6 class="mt-2 mb-0 fw-bold">{{ session?.nombre || 'Usuario' }}</h6>
+    <small class="text-muted">{{ session?.role | titlecase }}</small>
+  </div>
+  <hr class="my-1">
+  <nav class="nav flex-column">
+    <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">
+      <i class="bi bi-speedometer2 me-2"></i>Dashboard
+    </a>
+    <a class="nav-link" routerLink="/pqr" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+      <i class="bi bi-list-ul me-2"></i>Todas las PQR
+    </a>
+    <a class="nav-link" routerLink="/pqr/nueva" routerLinkActive="active">
+      <i class="bi bi-plus-circle me-2"></i>Nueva PQR
+    </a>
+    <a class="nav-link" routerLink="/chat" routerLinkActive="active">
+      <i class="bi bi-chat-dots me-2"></i>Chat de ayuda
+    </a>
+    <hr class="my-1" *ngIf="isOperatorOrAbove">
+    <span class="sidebar-section-label" *ngIf="isOperatorOrAbove">Gestión</span>
+    <a class="nav-link" routerLink="/pqr" routerLinkActive="active" *ngIf="isOperatorOrAbove" [routerLinkActiveOptions]="{exact: true}">
+      <i class="bi bi-inbox me-2"></i>Gestionar PQR
+    </a>
+    <hr class="my-1" *ngIf="isAdmin">
+    <span class="sidebar-section-label" *ngIf="isAdmin">Administración</span>
+    <a class="nav-link" routerLink="/admin/usuarios" routerLinkActive="active" *ngIf="isAdmin">
+      <i class="bi bi-people me-2"></i>Usuarios
+    </a>
+  </nav>
+  <div class="mt-auto p-3 text-center">
+    <small class="text-muted">CivicBQ v1.0</small>
+  </div>
+</div>

@@ -1,0 +1,10 @@
+.app-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.main-content {
+  margin-top: 56px;
+  min-height: calc(100vh - 56px - 50px);
+  background: #f0f2f5;
+}

@@ -1,0 +1,96 @@
+<div class="container-fluid py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom py-3">
+          <h5 class="mb-0 fw-bold">
+            <i class="bi" [class.bi-plus-circle]="!isEditMode" [class.bi-pencil]="isEditMode" class="me-2"></i>
+            {{ isEditMode ? 'Editar PQR' : 'Nueva PQR' }}
+          </h5>
+        </div>
+        <div class="card-body p-4">
+          <div class="alert alert-success py-2" *ngIf="successMessage">
+            <i class="bi bi-check-circle me-1"></i>{{ successMessage }}
+          </div>
+          <div class="alert alert-danger py-2" *ngIf="errorMessage">
+            <i class="bi bi-exclamation-triangle me-1"></i>{{ errorMessage }}
+          </div>
+
+          <form [formGroup]="pqrForm" (ngSubmit)="onSubmit()" *ngIf="!successMessage">
+            <div class="mb-3">
+              <label for="titulo" class="form-label">Título <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="titulo" formControlName="titulo"
+                placeholder="Ej: Bache en la calle principal"
+                [class.is-invalid]="submitted && f['titulo'].invalid">
+              <div class="invalid-feedback" *ngIf="submitted && f['titulo'].invalid">
+                <span *ngIf="f['titulo'].errors?.['required']">El título es obligatorio</span>
+                <span *ngIf="f['titulo'].errors?.['minlength']">Mínimo 10 caracteres</span>
+                <span *ngIf="f['titulo'].errors?.['maxlength']">Máximo 200 caracteres</span>
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="categoria" class="form-label">Categoría <span class="text-danger">*</span></label>
+                <select class="form-select" id="categoria" formControlName="categoria"
+                  [class.is-invalid]="submitted && f['categoria'].invalid">
+                  <option value="">Selecciona una categoría</option>
+                  <option *ngFor="let c of categorias" [value]="c">{{ c }}</option>
+                </select>
+                <div class="invalid-feedback" *ngIf="submitted && f['categoria'].invalid">
+                  Debes seleccionar una categoría
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label for="prioridad" class="form-label">Prioridad <span class="text-danger">*</span></label>
+                <select class="form-select" id="prioridad" formControlName="prioridad"
+                  [class.is-invalid]="submitted && f['prioridad'].invalid">
+                  <option value="">Selecciona una prioridad</option>
+                  <option *ngFor="let p of prioridades" [value]="p">{{ p }}</option>
+                </select>
+                <div class="invalid-feedback" *ngIf="submitted && f['prioridad'].invalid">
+                  Debes seleccionar una prioridad
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="ubicacion" class="form-label">Ubicación <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="ubicacion" formControlName="ubicacion"
+                placeholder="Ej: Cra 5 #10-30, Centro"
+                [class.is-invalid]="submitted && f['ubicacion'].invalid">
+              <div class="invalid-feedback" *ngIf="submitted && f['ubicacion'].invalid">
+                <span *ngIf="f['ubicacion'].errors?.['required']">La ubicación es obligatoria</span>
+                <span *ngIf="f['ubicacion'].errors?.['minlength']">Mínimo 5 caracteres</span>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label for="descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="descripcion" formControlName="descripcion" rows="5"
+                placeholder="Describe detalladamente tu solicitud, queja o reclamo..."
+                [class.is-invalid]="submitted && f['descripcion'].invalid"></textarea>
+              <div class="invalid-feedback" *ngIf="submitted && f['descripcion'].invalid">
+                <span *ngIf="f['descripcion'].errors?.['required']">La descripción es obligatoria</span>
+                <span *ngIf="f['descripcion'].errors?.['minlength']">Mínimo 20 caracteres</span>
+                <span *ngIf="f['descripcion'].errors?.['maxlength']">Máximo 2000 caracteres</span>
+              </div>
+              <small class="text-muted">{{ (f['descripcion'].value?.length || 0) }}/2000</small>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary px-4" [disabled]="loading">
+                <span class="spinner-border spinner-border-sm me-1" *ngIf="loading"></span>
+                <i class="bi bi-save me-1" *ngIf="!loading"></i>
+                {{ isEditMode ? 'Actualizar' : 'Enviar PQR' }}
+              </button>
+              <a routerLink="/pqr" class="btn btn-outline-secondary px-4">
+                <i class="bi bi-x-circle me-1"></i>Cancelar
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
