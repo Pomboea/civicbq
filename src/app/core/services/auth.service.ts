@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { AuthSession, UserRole } from '../models/user.model';
 import { environment } from '../../../environments/environment';
-import { environment } from '../../../environments/environment';
 
 export interface LoginRequest {
   username: string;

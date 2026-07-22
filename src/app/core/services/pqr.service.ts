@@ -3,7 +3,6 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Pqr, PqrStatus, PqrCategory, PqrComment } from '../models/pqr.model';
 import { environment } from '../../../environments/environment';
-import { environment } from '../../../environments/environment';
 
 export interface StatsResponse {
   total: number;
