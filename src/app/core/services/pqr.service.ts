@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Pqr, PqrStatus, PqrCategory, PqrComment } from '../models/pqr.model';
+import { environment } from '../../../environments/environment';
+import { environment } from '../../../environments/environment';
 
 export interface StatsResponse {
   total: number;
@@ -11,7 +13,7 @@ export interface StatsResponse {
 
 @Injectable({ providedIn: 'root' })
 export class PqrService {
-  private readonly API_URL = 'http://localhost:8000/api/pqrs';
+  private readonly API_URL = `${environment.apiUrl}/pqrs`;
 
   constructor(private http: HttpClient) {}
 

@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { AuthSession, UserRole } from '../models/user.model';
+import { environment } from '../../../environments/environment';
+import { environment } from '../../../environments/environment';
 
 export interface LoginRequest {
   username: string;
@@ -25,7 +27,7 @@ export interface LoginResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly API_URL = 'http://localhost:8000/api/auth';
+  private readonly API_URL = `${environment.apiUrl}/auth`;
   private readonly STORAGE_KEY = 'civicbq_session';
   private currentUserSubject = new BehaviorSubject<AuthSession | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
