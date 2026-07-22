@@ -35,11 +35,9 @@ export class LoginComponent {
     const { username, password } = this.loginForm.value;
 
     this.authService.login(username, password).subscribe({
-      next: session => {
+      next: () => {
         this.loading = false;
-        if (session) {
-          this.router.navigate(['/dashboard']);
-        }
+        this.router.navigate(['/dashboard']);
       },
       error: err => {
         this.loading = false;

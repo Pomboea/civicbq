@@ -8,6 +8,13 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface RegisterRequest {
+  username: string;
+  password: string;
+  nombre: string;
+  email: string;
+}
+
 export interface LoginResponse {
   userId: string;
   username: string;
@@ -39,20 +46,34 @@ export class AuthService {
     }
   }
 
-  login(username: string, password: string): Observable<LoginResponse | null> {
+  login(username: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.API_URL}/login`, { username, password }).pipe(
       tap(response => {
-        if (response) {
-          const session: AuthSession = {
-            userId: response.userId,
-            username: response.username,
-            nombre: response.nombre,
-            role: response.role as UserRole,
-            token: response.token
-          };
-          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
-          this.currentUserSubject.next(session);
-        }
+        const session: AuthSession = {
+          userId: response.userId,
+          username: response.username,
+          nombre: response.nombre,
+          role: response.role as UserRole,
+          token: response.token
+        };
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
+        this.currentUserSubject.next(session);
+      })
+    );
+  }
+
+  register(data: RegisterRequest): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.API_URL}/register`, data).pipe(
+      tap(response => {
+        const session: AuthSession = {
+          userId: response.userId,
+          username: response.username,
+          nombre: response.nombre,
+          role: response.role as UserRole,
+          token: response.token
+        };
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
+        this.currentUserSubject.next(session);
       })
     );
   }

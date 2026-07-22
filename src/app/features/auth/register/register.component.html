@@ -1,0 +1,86 @@
+<div class="register-container">
+  <div class="card shadow-lg border-0" style="max-width: 480px; width: 100%;">
+    <div class="card-body p-5">
+      <div class="text-center mb-4">
+        <i class="bi bi-person-plus text-primary" style="font-size: 3rem;"></i>
+        <h4 class="fw-bold mt-2">Crear cuenta</h4>
+        <p class="text-muted">Regístrate como ciudadano en CivicBQ</p>
+      </div>
+
+      <div class="alert alert-success py-2" *ngIf="successMessage">
+        <i class="bi bi-check-circle me-1"></i>{{ successMessage }}
+      </div>
+
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" *ngIf="!successMessage">
+        <div class="alert alert-danger py-2" *ngIf="errorMessage">
+          <i class="bi bi-exclamation-triangle me-1"></i>{{ errorMessage }}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Nombre completo <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person"></i></span>
+            <input type="text" class="form-control" formControlName="nombre" placeholder="Ej: Juan Pérez"
+              [class.is-invalid]="f['nombre'].invalid && (f['nombre'].dirty || f['nombre'].touched)">
+          </div>
+          <div class="invalid-feedback" *ngIf="f['nombre'].invalid && (f['nombre'].dirty || f['nombre'].touched)">
+            Mínimo 3 caracteres
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+            <input type="email" class="form-control" formControlName="email" placeholder="correo@ejemplo.com"
+              [class.is-invalid]="f['email'].invalid && (f['email'].dirty || f['email'].touched)">
+          </div>
+          <div class="invalid-feedback" *ngIf="f['email'].invalid && (f['email'].dirty || f['email'].touched)">
+            Ingresa un email válido
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Usuario <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+            <input type="text" class="form-control" formControlName="username" placeholder="Ej: juan123"
+              [class.is-invalid]="f['username'].invalid && (f['username'].dirty || f['username'].touched)">
+          </div>
+          <div class="invalid-feedback" *ngIf="f['username'].invalid && (f['username'].dirty || f['username'].touched)">
+            <span *ngIf="f['username'].errors?.['required']">El usuario es obligatorio</span>
+            <span *ngIf="f['username'].errors?.['minlength']">Mínimo 3 caracteres</span>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input type="password" class="form-control" formControlName="password" placeholder="Mínimo 4 caracteres"
+              [class.is-invalid]="f['password'].invalid && (f['password'].dirty || f['password'].touched)">
+          </div>
+          <div class="invalid-feedback" *ngIf="f['password'].invalid && (f['password'].dirty || f['password'].touched)">
+            Mínimo 4 caracteres
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 py-2 mb-3" [disabled]="registerForm.invalid || loading">
+          <span class="spinner-border spinner-border-sm me-1" *ngIf="loading"></span>
+          <i class="bi bi-person-plus me-1" *ngIf="!loading"></i>
+          Crear cuenta
+        </button>
+      </form>
+
+      <div class="text-center mt-3">
+        <small class="text-muted">¿Ya tienes cuenta?</small>
+        <a routerLink="/auth/login" class="ms-1">Inicia sesión</a>
+      </div>
+
+      <hr class="my-3">
+      <a routerLink="/auth/login" class="btn btn-outline-secondary w-100">
+        <i class="bi bi-arrow-left me-1"></i>Volver al inicio de sesión
+      </a>
+    </div>
+  </div>
+</div>

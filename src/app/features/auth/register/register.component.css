@@ -1,0 +1,14 @@
+.register-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 50%, #084298 100%);
+  padding: 1rem;
+}
+.card {
+  border-radius: 12px;
+}
+.invalid-feedback {
+  display: block;
+}
