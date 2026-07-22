@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
@@ -10,9 +11,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
+VERCEL_DOMAIN = os.environ.get("VERCEL_URL", "").replace("https://", "")
+CORS_ORIGINS = [
+    "http://localhost:4200",
+    "https://civicbq.vercel.app",
+]
+
+if VERCEL_DOMAIN:
+    CORS_ORIGINS.append(f"https://{VERCEL_DOMAIN}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -3,6 +3,7 @@
   "outputDirectory": "dist/civicbq/browser",
   "framework": "angular",
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

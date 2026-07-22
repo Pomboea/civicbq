@@ -1,7 +1,11 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./civicbq.db"
+IS_VERCEL = os.environ.get("VERCEL", False)
+DB_DIR = "/tmp" if IS_VERCEL else "."
+DB_PATH = os.path.join(DB_DIR, "civicbq.db")
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
