@@ -1,24 +1,29 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { User } from '../models/user.model';
-import { environment } from '../../../environments/environment';
+import { MOCK_USERS } from '../../mock/data';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-  private readonly API_URL = `${environment.apiUrl}/users`;
+  private readonly STORAGE_KEY = 'civicbq_users';
+  private usersSubject = new BehaviorSubject<User[]>([]);
 
-  constructor(private http: HttpClient) {}
-
-  getAll(): Observable<User[]> {
-    return this.http.get<User[]>(this.API_URL);
+  constructor() {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    if (stored) { try { this.usersSubject.next(JSON.parse(stored)); return; } catch {} }
+    this.usersSubject.next(MOCK_USERS); localStorage.setItem(this.STORAGE_KEY, JSON.stringify(MOCK_USERS));
   }
 
+  getAll(): Observable<User[]> { return this.users$; }
+  get users$() { return this.usersSubject.asObservable(); }
+
   toggleActive(id: string): Observable<User> {
-    return this.http.patch<User>(`${this.API_URL}/${id}/toggle-active`, {});
+    const c = this.usersSubject.value; const u = c.find(x => x.id === id); if (!u) throw new Error();
+    u.activo = !u.activo; this.usersSubject.next([...c]); localStorage.setItem(this.STORAGE_KEY, JSON.stringify(c)); return of(u);
   }
 
   resetPassword(id: string, newPassword: string): Observable<User> {
-    return this.http.patch<User>(`${this.API_URL}/${id}/reset-password`, { newPassword });
+    const c = this.usersSubject.value; const u = c.find(x => x.id === id); if (!u) throw new Error();
+    u.password = newPassword; this.usersSubject.next([...c]); localStorage.setItem(this.STORAGE_KEY, JSON.stringify(c)); return of(u);
   }
 }

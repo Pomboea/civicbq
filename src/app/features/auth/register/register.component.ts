@@ -37,16 +37,8 @@ export class RegisterComponent {
     this.errorMessage = '';
 
     this.authService.register(this.registerForm.value).subscribe({
-      next: () => {
-        this.successMessage = 'Registro exitoso. Redirigiendo...';
-        setTimeout(() => this.router.navigate(['/dashboard']), 1500);
-      },
-      error: err => {
-        this.loading = false;
-        this.errorMessage = err.status === 400
-          ? err.error?.detail || 'El nombre de usuario ya existe'
-          : 'Error de conexión con el servidor.';
-      }
+      next: () => { this.successMessage = 'Registro exitoso.'; setTimeout(() => this.router.navigate(['/dashboard']), 1500); },
+      error: () => { this.loading = false; this.errorMessage = 'El nombre de usuario ya existe'; }
     });
   }
 
