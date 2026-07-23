@@ -1,24 +1,53 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { User } from '../models/user.model';
-import { environment } from '../../../environments/environment';
+import { MOCK_USERS } from '../../mock/data';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-  private readonly API_URL = `${environment.apiUrl}/users`;
+  private readonly STORAGE_KEY = 'civicbq_users';
+  private usersSubject = new BehaviorSubject<User[]>([]);
+  public users$ = this.usersSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor() {
+    this.loadData();
+  }
+
+  private loadData(): void {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    if (stored) {
+      try {
+        this.usersSubject.next(JSON.parse(stored));
+        return;
+      } catch {
+        localStorage.removeItem(this.STORAGE_KEY);
+      }
+    }
+    this.usersSubject.next(MOCK_USERS);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(MOCK_USERS));
+  }
 
   getAll(): Observable<User[]> {
-    return this.http.get<User[]>(this.API_URL);
+    return this.users$;
   }
 
   toggleActive(id: string): Observable<User> {
-    return this.http.patch<User>(`${this.API_URL}/${id}/toggle-active`, {});
+    const current = this.usersSubject.value;
+    const user = current.find(u => u.id === id);
+    if (!user) throw new Error('Usuario no encontrado');
+    user.activo = !user.activo;
+    this.usersSubject.next([...current]);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
+    return of(user);
   }
 
   resetPassword(id: string, newPassword: string): Observable<User> {
-    return this.http.patch<User>(`${this.API_URL}/${id}/reset-password`, { newPassword });
+    const current = this.usersSubject.value;
+    const user = current.find(u => u.id === id);
+    if (!user) throw new Error('Usuario no encontrado');
+    user.password = newPassword;
+    this.usersSubject.next([...current]);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
+    return of(user);
   }
 }

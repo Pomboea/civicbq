@@ -34,16 +34,12 @@ export class LoginComponent {
     this.errorMessage = '';
     const { username, password } = this.loginForm.value;
 
-    this.authService.login(username, password).subscribe({
-      next: () => {
-        this.loading = false;
+    this.authService.login(username, password).subscribe(session => {
+      this.loading = false;
+      if (session) {
         this.router.navigate(['/dashboard']);
-      },
-      error: err => {
-        this.loading = false;
-        this.errorMessage = err.status === 401
-          ? 'Credenciales inválidas. Verifica tu usuario y contraseña.'
-          : 'Error de conexión con el servidor. Asegúrate de que el backend esté corriendo.';
+      } else {
+        this.errorMessage = 'Credenciales inválidas. Verifica tu usuario y contraseña.';
       }
     });
   }

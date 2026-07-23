@@ -41,11 +41,9 @@ export class RegisterComponent {
         this.successMessage = 'Registro exitoso. Redirigiendo...';
         setTimeout(() => this.router.navigate(['/dashboard']), 1500);
       },
-      error: err => {
+      error: () => {
         this.loading = false;
-        this.errorMessage = err.status === 400
-          ? err.error?.detail || 'El nombre de usuario ya existe'
-          : 'Error de conexión con el servidor';
+        this.errorMessage = 'El nombre de usuario ya existe';
       }
     });
   }

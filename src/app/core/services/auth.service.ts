@@ -1,37 +1,15 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { AuthSession, UserRole } from '../models/user.model';
-import { environment } from '../../../environments/environment';
-
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  username: string;
-  password: string;
-  nombre: string;
-  email: string;
-}
-
-export interface LoginResponse {
-  userId: string;
-  username: string;
-  nombre: string;
-  role: string;
-  token: string;
-}
+import { MOCK_USERS } from '../../mock/data';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly API_URL = `${environment.apiUrl}/auth`;
   private readonly STORAGE_KEY = 'civicbq_session';
   private currentUserSubject = new BehaviorSubject<AuthSession | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor() {
     this.loadSession();
   }
 
@@ -47,36 +25,55 @@ export class AuthService {
     }
   }
 
-  login(username: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.API_URL}/login`, { username, password }).pipe(
-      tap(response => {
-        const session: AuthSession = {
-          userId: response.userId,
-          username: response.username,
-          nombre: response.nombre,
-          role: response.role as UserRole,
-          token: response.token
-        };
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
-        this.currentUserSubject.next(session);
-      })
+  login(username: string, password: string): Observable<AuthSession | null> {
+    const user = MOCK_USERS.find(
+      u => u.username === username && u.password === password && u.activo
     );
+    if (user) {
+      const session: AuthSession = {
+        userId: user.id,
+        username: user.username,
+        nombre: user.nombre,
+        role: user.role,
+        token: btoa(`${user.id}:${Date.now()}`)
+      };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
+      this.currentUserSubject.next(session);
+      return of(session);
+    }
+    return of(null);
   }
 
-  register(data: RegisterRequest): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${this.API_URL}/register`, data).pipe(
-      tap(response => {
-        const session: AuthSession = {
-          userId: response.userId,
-          username: response.username,
-          nombre: response.nombre,
-          role: response.role as UserRole,
-          token: response.token
-        };
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
-        this.currentUserSubject.next(session);
-      })
-    );
+  register(data: { username: string; password: string; nombre: string; email: string }): Observable<AuthSession> {
+    const exists = MOCK_USERS.find(u => u.username === data.username);
+    if (exists) {
+      return new Observable(observer => {
+        observer.error({ status: 400, error: { detail: 'El nombre de usuario ya existe' } });
+      });
+    }
+    const lastId = MOCK_USERS[MOCK_USERS.length - 1].id;
+    const nextNum = parseInt(lastId.replace('U', '')) + 1;
+    const newId = `U${String(nextNum).padStart(3, '0')}`;
+    const newUser = {
+      id: newId,
+      username: data.username,
+      password: data.password,
+      nombre: data.nombre,
+      email: data.email,
+      role: 'ciudadano' as UserRole,
+      activo: true
+    };
+    MOCK_USERS.push(newUser);
+    const session: AuthSession = {
+      userId: newUser.id,
+      username: newUser.username,
+      nombre: newUser.nombre,
+      role: newUser.role,
+      token: btoa(`${newUser.id}:${Date.now()}`)
+    };
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(session));
+    this.currentUserSubject.next(session);
+    return of(session);
   }
 
   logout(): void {
