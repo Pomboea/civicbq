@@ -1,53 +1,24 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { User } from '../models/user.model';
-import { MOCK_USERS } from '../../mock/data';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-  private readonly STORAGE_KEY = 'civicbq_users';
-  private usersSubject = new BehaviorSubject<User[]>([]);
-  public users$ = this.usersSubject.asObservable();
+  private readonly API_URL = `${environment.apiUrl}/users`;
 
-  constructor() {
-    this.loadData();
-  }
-
-  private loadData(): void {
-    const stored = localStorage.getItem(this.STORAGE_KEY);
-    if (stored) {
-      try {
-        this.usersSubject.next(JSON.parse(stored));
-        return;
-      } catch {
-        localStorage.removeItem(this.STORAGE_KEY);
-      }
-    }
-    this.usersSubject.next(MOCK_USERS);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(MOCK_USERS));
-  }
+  constructor(private http: HttpClient) {}
 
   getAll(): Observable<User[]> {
-    return this.users$;
+    return this.http.get<User[]>(this.API_URL);
   }
 
   toggleActive(id: string): Observable<User> {
-    const current = this.usersSubject.value;
-    const user = current.find(u => u.id === id);
-    if (!user) throw new Error('Usuario no encontrado');
-    user.activo = !user.activo;
-    this.usersSubject.next([...current]);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
-    return of(user);
+    return this.http.patch<User>(`${this.API_URL}/${id}/toggle-active`, {});
   }
 
   resetPassword(id: string, newPassword: string): Observable<User> {
-    const current = this.usersSubject.value;
-    const user = current.find(u => u.id === id);
-    if (!user) throw new Error('Usuario no encontrado');
-    user.password = newPassword;
-    this.usersSubject.next([...current]);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
-    return of(user);
+    return this.http.patch<User>(`${this.API_URL}/${id}/reset-password`, { newPassword });
   }
 }
