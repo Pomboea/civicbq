@@ -20,6 +20,10 @@ export const APP_ROUTES: Routes = [
     loadChildren: () => import('./features/chat/chat.routes').then(m => m.CHAT_ROUTES)
   },
   {
+    path: 'livechat',
+    loadChildren: () => import('./features/livechat/livechat.routes').then(m => m.LIVECHAT_ROUTES)
+  },
+  {
     path: 'admin',
     loadChildren: () => import('./features/admin/admin.routes').then(m => m.ADMIN_ROUTES)
   },

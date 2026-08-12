@@ -2,42 +2,67 @@
   <div class="row justify-content-center">
     <div class="col-lg-8 col-xl-6">
       <div class="card border-0 shadow-sm">
-        <div class="card-header bg-primary text-white py-3">
+        <div class="card-header text-white py-3" [class.bg-primary]="liveStatus === 'ia'" [class.bg-success]="liveStatus !== 'ia'">
           <div class="d-flex align-items-center">
             <div class="me-3">
-              <i class="bi bi-robot" style="font-size: 1.8rem;"></i>
+              <i class="bi" [class.bi-robot]="liveStatus === 'ia'" [class.bi-headset]="liveStatus !== 'ia'" style="font-size: 1.8rem;"></i>
             </div>
             <div>
-              <h5 class="mb-0 fw-bold">Asistente CivicBQ</h5>
-              <small>Chat de ayuda virtual - RAG Simulado</small>
+              <h5 class="mb-0 fw-bold">{{ liveStatus === 'ia' ? 'Asistente CivicBQ' : 'Chat en vivo' }}</h5>
+              <small>{{ liveStatus === 'ia' ? 'Chat de ayuda virtual - Inteligencia Artificial (Ollama)' : 'Atención con asesor humano' }}</small>
             </div>
-            <button class="btn btn-outline-light btn-sm ms-auto" (click)="clearChat()" title="Limpiar chat">
+            <button *ngIf="liveStatus === 'ia'" class="btn btn-outline-light btn-sm ms-auto me-2"
+              (click)="escalateToHuman()" [disabled]="escalating" title="Hablar con un asesor humano">
+              <i class="bi bi-person-badge me-1"></i>{{ escalating ? 'Conectando...' : 'Hablar con asesor' }}
+            </button>
+            <button class="btn btn-outline-light btn-sm" [class.ms-auto]="liveStatus !== 'ia'" (click)="clearChat()" title="Limpiar chat">
               <i class="bi bi-trash"></i>
             </button>
           </div>
         </div>
 
+        <div *ngIf="liveStatus === 'en_cola'" class="alert alert-warning mb-0 rounded-0 py-2 small d-flex align-items-center">
+          <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+          En cola, esperando que un asesor tome tu conversación...
+        </div>
+        <div *ngIf="liveStatus === 'con_asesor'" class="alert alert-success mb-0 rounded-0 py-2 small">
+          <i class="bi bi-check-circle me-1"></i>
+          Conectado con <strong>{{ liveSession?.agentName }}</strong>
+        </div>
+        <div *ngIf="liveStatus === 'cerrada'" class="alert alert-secondary mb-0 rounded-0 py-2 small">
+          <i class="bi bi-x-circle me-1"></i>
+          Esta conversación fue cerrada.
+        </div>
+
         <div class="card-body chat-messages p-0" #chatMessages>
           <div class="p-3">
-            <div *ngFor="let msg of messages" class="mb-3"
-              [class.text-end]="msg.role === 'user'"
-              [class.text-start]="msg.role === 'assistant'">
-              <div class="d-inline-block" [class.user-message]="msg.role === 'user'" [class.assistant-message]="msg.role === 'assistant'">
-                <div class="message-bubble p-3 rounded-3"
-                  [class.bg-primary text-white]="msg.role === 'user'"
-                  [class.bg-light]="msg.role === 'assistant'">
-                  <p class="mb-1 small">{{ msg.content }}</p>
-                </div>
-                <small class="text-muted mt-1 d-block">{{ msg.timestamp | date:'HH:mm' }}</small>
+            <ng-container *ngFor="let msg of messages">
+              <div *ngIf="msg.role === 'system'" class="text-center mb-3">
+                <small class="badge bg-light text-muted border fw-normal px-3 py-2">{{ msg.content }}</small>
               </div>
-            </div>
+              <div *ngIf="msg.role !== 'system'" class="mb-3"
+                [class.text-end]="msg.role === 'user'"
+                [class.text-start]="msg.role === 'assistant'">
+                <div class="d-inline-block" [class.user-message]="msg.role === 'user'" [class.assistant-message]="msg.role === 'assistant'">
+                  <small *ngIf="msg.senderName" class="text-success fw-bold d-block mb-1">
+                    <i class="bi bi-person-badge me-1"></i>{{ msg.senderName }}
+                  </small>
+                  <div class="message-bubble p-3 rounded-3"
+                    [class.bg-primary text-white]="msg.role === 'user'"
+                    [class.bg-light]="msg.role === 'assistant'">
+                    <p class="mb-1 small">{{ msg.content }}</p>
+                  </div>
+                  <small class="text-muted mt-1 d-block">{{ msg.timestamp | date:'HH:mm' }}</small>
+                </div>
+              </div>
+            </ng-container>
 
             <div class="text-center mb-3" *ngIf="loading">
               <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
               <small class="text-muted">Escribiendo respuesta...</small>
             </div>
 
-            <div *ngIf="showQuickReplies" class="mt-3">
+            <div *ngIf="showQuickReplies && liveStatus === 'ia'" class="mt-3">
               <p class="text-muted small mb-2">Preguntas frecuentes:</p>
               <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-outline-primary btn-sm quick-reply-btn"
@@ -50,14 +75,20 @@
         </div>
 
         <div class="card-footer bg-white border-top p-3">
-          <div class="input-group">
-            <input type="text" class="form-control" placeholder="Escribe tu pregunta..."
+          <div *ngIf="liveStatus !== 'cerrada'" class="input-group">
+            <input type="text" class="form-control"
+              [placeholder]="liveStatus === 'ia' ? 'Escribe tu pregunta...' : 'Escribe un mensaje al asesor...'"
               [(ngModel)]="newMessage"
               (keyup.enter)="sendMessage()"
               [disabled]="loading">
-            <button class="btn btn-primary" (click)="sendMessage()"
-              [disabled]="!newMessage.trim() || loading">
+            <button class="btn" [class.btn-primary]="liveStatus === 'ia'" [class.btn-success]="liveStatus !== 'ia'"
+              (click)="sendMessage()" [disabled]="!newMessage.trim() || loading">
               <i class="bi bi-send"></i>
+            </button>
+          </div>
+          <div *ngIf="liveStatus === 'cerrada'" class="text-center">
+            <button class="btn btn-primary btn-sm" (click)="backToAI()">
+              <i class="bi bi-robot me-1"></i>Volver al asistente virtual
             </button>
           </div>
         </div>
@@ -66,8 +97,8 @@
       <div class="text-center mt-3">
         <small class="text-muted">
           <i class="bi bi-info-circle me-1"></i>
-          Este asistente funciona completamente offline usando una base de conocimiento local.
-          No utiliza APIs externas ni inteligencia artificial real.
+          Este asistente usa inteligencia artificial local (Ollama) para responder tus preguntas sobre CivicBQ.
+          Si lo necesitas, puedes hablar con un asesor humano en tiempo real.
         </small>
         <div class="mt-1">
           <small class="text-muted">

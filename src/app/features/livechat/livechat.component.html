@@ -1,0 +1,108 @@
+<div class="container-fluid py-4">
+  <h4 class="mb-3"><i class="bi bi-headset me-2"></i>Chats en vivo</h4>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-warning py-2">
+          <strong><i class="bi bi-hourglass-split me-1"></i>En cola ({{ queue.length }})</strong>
+        </div>
+        <div class="list-group list-group-flush">
+          <div *ngIf="queue.length === 0" class="list-group-item text-muted small">No hay usuarios esperando.</div>
+          <div *ngFor="let s of queue" class="list-group-item list-group-item-action" (click)="open(s)"
+            [class.active]="selected?.id === s.id" role="button">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ s.userName }}</strong>
+                <div><small class="text-muted">{{ s.createdAt | date:'dd/MM HH:mm' }}</small></div>
+              </div>
+              <button class="btn btn-success btn-sm" (click)="take(s, $event)">
+                <i class="bi bi-telephone-inbound me-1"></i>Atender
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-success text-white py-2">
+          <strong><i class="bi bi-chat-dots me-1"></i>Mis conversaciones ({{ myActive.length }})</strong>
+        </div>
+        <div class="list-group list-group-flush">
+          <div *ngIf="myActive.length === 0" class="list-group-item text-muted small">No tienes conversaciones activas.</div>
+          <div *ngFor="let s of myActive" class="list-group-item list-group-item-action" (click)="open(s)"
+            [class.active]="selected?.id === s.id" role="button">
+            <strong>{{ s.userName }}</strong>
+            <div><small class="text-muted">{{ s.createdAt | date:'dd/MM HH:mm' }}</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card border-0 shadow-sm" *ngIf="!selected">
+        <div class="card-body text-center text-muted py-5">
+          <i class="bi bi-chat-square-text" style="font-size: 3rem;"></i>
+          <p class="mt-2 mb-0">Selecciona una conversación de la cola o de tus chats activos.</p>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm" *ngIf="selected">
+        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ selected.userName }}</strong>
+            <span class="badge ms-2" [class.bg-warning]="selected.status === 'en_cola'"
+              [class.text-dark]="selected.status === 'en_cola'" [class.bg-success]="selected.status === 'con_asesor'">
+              {{ selected.status === 'en_cola' ? 'En cola' : 'En conversación' }}
+            </span>
+          </div>
+          <div>
+            <button *ngIf="selected.status === 'en_cola'" class="btn btn-success btn-sm me-2" (click)="take(selected)">
+              <i class="bi bi-telephone-inbound me-1"></i>Atender
+            </button>
+            <button class="btn btn-outline-danger btn-sm" (click)="close()">
+              <i class="bi bi-x-circle me-1"></i>Cerrar chat
+            </button>
+          </div>
+        </div>
+
+        <div class="card-body agent-messages p-3" #agentMessages>
+          <ng-container *ngFor="let m of messages">
+            <div *ngIf="m.sender === 'system'" class="text-center mb-2">
+              <small class="badge bg-light text-muted border fw-normal px-3 py-2">{{ m.content }}</small>
+            </div>
+            <div *ngIf="m.sender !== 'system'" class="mb-3"
+              [class.text-end]="m.sender === 'agent'"
+              [class.text-start]="m.sender !== 'agent'">
+              <div class="d-inline-block bubble-wrap">
+                <small class="text-muted d-block mb-1" *ngIf="m.sender !== 'assistant'">
+                  {{ m.sender === 'agent' ? m.senderName : selected.userName }}
+                </small>
+                <small class="text-muted d-block mb-1" *ngIf="m.sender === 'assistant'">Asistente IA</small>
+                <div class="message-bubble p-2 px-3 rounded-3"
+                  [class.bg-success]="m.sender === 'agent'" [class.text-white]="m.sender === 'agent'"
+                  [class.bg-light]="m.sender !== 'agent'">
+                  <p class="mb-0 small">{{ m.content }}</p>
+                </div>
+                <small class="text-muted mt-1 d-block">{{ m.createdAt | date:'HH:mm' }}</small>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="card-footer bg-white border-top p-3" *ngIf="selected.status === 'con_asesor'">
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Escribe tu respuesta..."
+              [(ngModel)]="newMessage" (keyup.enter)="send()" [disabled]="sending">
+            <button class="btn btn-success" (click)="send()" [disabled]="!newMessage.trim() || sending">
+              <i class="bi bi-send"></i>
+            </button>
+          </div>
+        </div>
+        <div class="card-footer bg-light border-top p-2 text-center" *ngIf="selected.status === 'en_cola'">
+          <small class="text-muted">Debes atender la conversación para poder responder.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

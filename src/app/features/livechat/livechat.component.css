@@ -1,0 +1,13 @@
+.agent-messages {
+  height: 420px;
+  overflow-y: auto;
+  background: #fafafa;
+}
+.message-bubble {
+  max-width: 420px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.list-group-item-action {
+  cursor: pointer;
+}

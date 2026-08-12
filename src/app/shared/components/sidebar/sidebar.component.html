@@ -23,6 +23,9 @@
     <a class="nav-link" routerLink="/pqr" routerLinkActive="active" *ngIf="isOperatorOrAbove" [routerLinkActiveOptions]="{exact: true}">
       <i class="bi bi-inbox me-2"></i>Gestionar PQR
     </a>
+    <a class="nav-link" routerLink="/livechat" routerLinkActive="active" *ngIf="isOperatorOrAbove">
+      <i class="bi bi-headset me-2"></i>Chats en vivo
+    </a>
     <hr class="my-1" *ngIf="isAdmin">
     <span class="sidebar-section-label" *ngIf="isAdmin">Administración</span>
     <a class="nav-link" routerLink="/admin/usuarios" routerLinkActive="active" *ngIf="isAdmin">
