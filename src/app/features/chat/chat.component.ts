@@ -1,8 +1,9 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { WebSocketSubject } from 'rxjs/webSocket';
 import { ChatService, ChatMessage } from '../../core/services/chat.service';
-import { LiveChatService, LiveSession, LiveMessage } from '../../core/services/livechat.service';
+import { LiveChatService, LiveSession, LiveMessage, LiveEvent } from '../../core/services/livechat.service';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -20,12 +21,14 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   loading = false;
   showQuickReplies = true;
 
-  // Estado del chat en vivo con asesor
+  // Estado del chat en vivo con asesor (WebSocket)
   liveSession: LiveSession | null = null;
   liveStatus: 'ia' | 'en_cola' | 'con_asesor' | 'cerrada' = 'ia';
   escalating = false;
+  private ws: WebSocketSubject<any> | null = null;
   private lastLiveMessageId = 0;
-  private pollTimer: any = null;
+  private renderedLive = new Set<number>();
+  private destroyed = false;
 
   quickQuestions = [
     '¿Cómo crear una PQR?',
@@ -51,7 +54,8 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopPolling();
+    this.destroyed = true;
+    this.closeWs();
   }
 
   ngAfterViewChecked(): void {
@@ -98,7 +102,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.sendMessage(question);
   }
 
-  // --- Chat en vivo con asesor humano ---
+  // --- Chat en vivo con asesor humano (WebSocket) ---
 
   escalateToHuman(): void {
     if (this.escalating || this.liveStatus !== 'ia') return;
@@ -115,8 +119,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           this.liveSession = s;
           this.liveStatus = 'en_cola';
           this.escalating = false;
-          this.pushSystemMessage('Solicitud enviada. Estás en la cola para hablar con un asesor humano...');
-          this.startPolling();
+          this.connectWs();
         },
         error: () => {
           this.escalating = false;
@@ -125,68 +128,82 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       });
   }
 
-  private sendLiveMessage(content: string): void {
-    if (!this.liveSession || this.liveStatus === 'cerrada') return;
-    const session = this.authService.getSession();
-    this.newMessage = '';
-
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      content,
-      role: 'user',
-      timestamp: new Date()
-    };
-    this.messages.push(userMessage);
-
-    this.liveChatService.sendMessage(this.liveSession.id, 'user', session?.nombre || 'Ciudadano', content)
-      .subscribe({
-        next: m => { this.lastLiveMessageId = Math.max(this.lastLiveMessageId, m.id); },
-        error: () => this.pushSystemMessage('No se pudo enviar el mensaje. Verifica la conexión con el servidor.')
-      });
+  private connectWs(): void {
+    if (!this.liveSession || this.destroyed) return;
+    this.ws = this.liveChatService.connect(this.liveSession.id);
+    this.ws.subscribe({
+      next: (ev: LiveEvent) => this.handleLiveEvent(ev),
+      error: () => this.scheduleReconnect(),
+      complete: () => {
+        if (!this.destroyed && this.liveStatus !== 'cerrada') this.scheduleReconnect();
+      }
+    });
+    // Sincroniza mensajes perdidos (incluye los generados antes de conectar)
+    this.catchUp();
   }
 
-  private startPolling(): void {
-    this.stopPolling();
-    this.pollTimer = setInterval(() => this.pollLive(), 3000);
+  private scheduleReconnect(): void {
+    if (this.destroyed || this.liveStatus === 'cerrada') return;
+    setTimeout(() => this.connectWs(), 3000);
   }
 
-  private stopPolling(): void {
-    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+  private closeWs(): void {
+    if (this.ws) { this.ws.complete(); this.ws = null; }
   }
 
-  private pollLive(): void {
+  private catchUp(): void {
     if (!this.liveSession) return;
-
-    this.liveChatService.getSession(this.liveSession.id).subscribe(s => {
-      this.liveSession = s;
-      if (s.status !== this.liveStatus) {
-        this.liveStatus = s.status;
-      }
-    });
-
     this.liveChatService.getMessages(this.liveSession.id, this.lastLiveMessageId).subscribe(msgs => {
-      for (const m of msgs) {
-        this.lastLiveMessageId = Math.max(this.lastLiveMessageId, m.id);
-        this.pushLiveMessage(m);
-      }
+      for (const m of msgs) this.renderLiveMessage(m);
     });
   }
 
-  private pushLiveMessage(m: LiveMessage): void {
-    if (m.sender === 'user') return; // los mensajes propios ya se muestran al enviarlos
+  private handleLiveEvent(ev: LiveEvent): void {
+    if (ev.type === 'message' && ev.message) {
+      this.renderLiveMessage(ev.message);
+    } else if (ev.type === 'status') {
+      if (ev.agentName && this.liveSession) this.liveSession.agentName = ev.agentName;
+      this.liveStatus = (ev.status as any) || this.liveStatus;
+      if (this.liveStatus === 'cerrada') this.closeWs();
+    } else if (ev.type === 'error') {
+      this.pushSystemMessage(ev.detail || 'Error en la conversación.');
+    }
+  }
+
+  private renderLiveMessage(m: LiveMessage): void {
+    if (this.renderedLive.has(m.id)) return;
+    this.renderedLive.add(m.id);
+    this.lastLiveMessageId = Math.max(this.lastLiveMessageId, m.id);
+
     if (m.sender === 'system') {
-      // evita duplicar el mensaje de solicitud que ya mostramos localmente
-      if (m.content.includes('solicita hablar con un asesor')) return;
       this.pushSystemMessage(m.content);
       return;
     }
     this.messages.push({
       id: `live-${m.id}`,
       content: m.content,
-      role: 'assistant',
+      role: m.sender === 'user' ? 'user' : 'assistant',
       senderName: m.sender === 'agent' ? m.senderName : undefined,
       timestamp: new Date(m.createdAt)
     });
+  }
+
+  private sendLiveMessage(content: string): void {
+    if (!this.liveSession || this.liveStatus === 'cerrada') return;
+    const session = this.authService.getSession();
+    this.newMessage = '';
+
+    if (!this.ws) {
+      this.pushSystemMessage('Sin conexión en tiempo real. Reconectando...');
+      this.scheduleReconnect();
+      return;
+    }
+    try {
+      this.liveChatService.sendOverWs(this.ws, 'user', session?.nombre || 'Ciudadano', content);
+    } catch {
+      this.pushSystemMessage('No se pudo enviar el mensaje. Reconectando...');
+      this.scheduleReconnect();
+    }
   }
 
   private pushSystemMessage(content: string): void {
@@ -194,18 +211,20 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   backToAI(): void {
-    this.stopPolling();
+    this.closeWs();
     this.liveSession = null;
     this.liveStatus = 'ia';
     this.lastLiveMessageId = 0;
+    this.renderedLive.clear();
     this.pushSystemMessage('Has vuelto al asistente virtual. ¿En qué más puedo ayudarte?');
   }
 
   clearChat(): void {
-    this.stopPolling();
+    this.closeWs();
     this.liveSession = null;
     this.liveStatus = 'ia';
     this.lastLiveMessageId = 0;
+    this.renderedLive.clear();
     this.messages = [];
     this.showQuickReplies = true;
     this.ngOnInit();

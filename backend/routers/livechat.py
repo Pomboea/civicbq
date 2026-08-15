@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import get_db
+from database import get_db, SessionLocal
 from models import ChatSession, ChatMessage, ChatSessionStatus
 
 router = APIRouter()
@@ -58,9 +60,96 @@ def message_to_dict(m: ChatMessage) -> dict:
     }
 
 
-def add_system_message(db: Session, session_id: int, content: str) -> None:
-    db.add(ChatMessage(session_id=session_id, sender="system", sender_name="", content=content))
+def add_system_message(db: Session, session_id: int, content: str) -> ChatMessage:
+    msg = ChatMessage(session_id=session_id, sender="system", sender_name="", content=content)
+    db.add(msg)
     db.commit()
+    db.refresh(msg)
+    return msg
+
+
+# ---------------- WebSocket: gestor de conexiones ----------------
+
+
+class ConnectionManager:
+    """Mantiene las conexiones WebSocket agrupadas por sesión de chat."""
+
+    def __init__(self):
+        self.active: dict[int, list[WebSocket]] = {}
+
+    async def connect(self, session_id: int, ws: WebSocket):
+        await ws.accept()
+        self.active.setdefault(session_id, []).append(ws)
+
+    def disconnect(self, session_id: int, ws: WebSocket):
+        conns = self.active.get(session_id, [])
+        if ws in conns:
+            conns.remove(ws)
+        if not conns:
+            self.active.pop(session_id, None)
+
+    async def broadcast(self, session_id: int, event: dict):
+        for ws in list(self.active.get(session_id, [])):
+            try:
+                await ws.send_text(json.dumps(event, ensure_ascii=False))
+            except Exception:
+                self.disconnect(session_id, ws)
+
+
+manager = ConnectionManager()
+
+
+def save_message(session_id: int, sender: str, sender_name: str, content: str) -> dict | None:
+    """Guarda un mensaje en la BD (sesión corta, usable desde WS). None si no procede."""
+    db = SessionLocal()
+    try:
+        session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+        if not session or session.status == ChatSessionStatus.cerrada:
+            return None
+        msg = ChatMessage(session_id=session_id, sender=sender, sender_name=sender_name, content=content)
+        db.add(msg)
+        db.commit()
+        db.refresh(msg)
+        return message_to_dict(msg)
+    finally:
+        db.close()
+
+
+@router.websocket("/ws/{session_id}")
+async def chat_ws(websocket: WebSocket, session_id: int):
+    db = SessionLocal()
+    try:
+        session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+        if not session:
+            await websocket.close(code=4404)
+            return
+    finally:
+        db.close()
+
+    await manager.connect(session_id, websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") != "message":
+                continue
+            sender = data.get("sender", "")
+            content = (data.get("content") or "").strip()
+            sender_name = data.get("sender_name", "")
+            if sender not in ("user", "agent") or not content:
+                continue
+            saved = save_message(session_id, sender, sender_name, content)
+            if saved:
+                await manager.broadcast(session_id, {"type": "message", "message": saved})
+            else:
+                await websocket.send_text(json.dumps(
+                    {"type": "error", "detail": "La conversación está cerrada."}, ensure_ascii=False))
+    except WebSocketDisconnect:
+        manager.disconnect(session_id, websocket)
+    except Exception:
+        manager.disconnect(session_id, websocket)
+
+
+# ---------------- REST: gestión de sesiones ----------------
 
 
 @router.post("/sessions", status_code=201)
@@ -114,7 +203,7 @@ def get_messages(session_id: int, after_id: int = 0, db: Session = Depends(get_d
 
 
 @router.post("/sessions/{session_id}/messages", status_code=201)
-def post_message(session_id: int, data: MessageCreate, db: Session = Depends(get_db)):
+async def post_message(session_id: int, data: MessageCreate, db: Session = Depends(get_db)):
     session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
@@ -127,11 +216,12 @@ def post_message(session_id: int, data: MessageCreate, db: Session = Depends(get
     db.add(message)
     db.commit()
     db.refresh(message)
+    await manager.broadcast(session_id, {"type": "message", "message": message_to_dict(message)})
     return message_to_dict(message)
 
 
 @router.post("/sessions/{session_id}/take")
-def take_session(session_id: int, data: TakeRequest, db: Session = Depends(get_db)):
+async def take_session(session_id: int, data: TakeRequest, db: Session = Depends(get_db)):
     session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
@@ -143,12 +233,14 @@ def take_session(session_id: int, data: TakeRequest, db: Session = Depends(get_d
     session.agent_name = data.agent_name
     db.commit()
     db.refresh(session)
-    add_system_message(db, session.id, f"El asesor {data.agent_name} se ha unido a la conversación.")
+    sys_msg = add_system_message(db, session.id, f"El asesor {data.agent_name} se ha unido a la conversación.")
+    await manager.broadcast(session_id, {"type": "message", "message": message_to_dict(sys_msg)})
+    await manager.broadcast(session_id, {"type": "status", "status": session.status.value, "agentName": data.agent_name})
     return session_to_dict(session)
 
 
 @router.post("/sessions/{session_id}/close")
-def close_session(session_id: int, data: CloseRequest, db: Session = Depends(get_db)):
+async def close_session(session_id: int, data: CloseRequest, db: Session = Depends(get_db)):
     session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
@@ -158,5 +250,7 @@ def close_session(session_id: int, data: CloseRequest, db: Session = Depends(get
     session.status = ChatSessionStatus.cerrada
     db.commit()
     db.refresh(session)
-    add_system_message(db, session.id, f"Conversación cerrada por {data.by}.")
+    sys_msg = add_system_message(db, session.id, f"Conversación cerrada por {data.by}.")
+    await manager.broadcast(session_id, {"type": "message", "message": message_to_dict(sys_msg)})
+    await manager.broadcast(session_id, {"type": "status", "status": session.status.value})
     return session_to_dict(session)
