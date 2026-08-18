@@ -1,3 +1,7 @@
+import os
+import threading
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
@@ -9,7 +13,25 @@ from routers.chat import router as chat_router
 from routers.assistant import router as assistant_router
 from routers.livechat import router as livechat_router
 
-app = FastAPI(title="CivicBQ API", version="1.0.0")
+
+def _start_telegram_bot() -> None:
+    """Inicia el bot de Telegram en un hilo si el token está configurado."""
+    if not os.getenv("TELEGRAM_BOT_TOKEN", "").strip():
+        return
+    from telegram_bot import run_bot
+
+    t = threading.Thread(target=run_bot, daemon=True, name="telegram-bot")
+    t.start()
+    print("Telegram bot iniciado en hilo de fondo")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _start_telegram_bot()
+    yield
+
+
+app = FastAPI(title="CivicBQ API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
