@@ -1,10 +1,12 @@
-﻿import json
+import json
 import os
+import re
 import urllib.request
 import urllib.error
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -24,18 +26,39 @@ BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 def using_groq() -> bool:
     return bool(GROQ_API_KEY)
 
-SYSTEM_PROMPT = """Eres el asistente virtual de CivicBQ (sistema de gestiÃ³n de PQR de una alcaldÃ­a) y atiendes consultas por Telegram.
+SYSTEM_PROMPT = """Eres el asistente virtual de CivicBQ (sistema de gestión de PQR de una alcaldía) y atiendes consultas por Telegram.
 
 REGLAS:
-- Responde SIEMPRE en espaÃ±ol, de forma breve y amable (mÃ¡ximo 2-3 frases).
-- Para preguntas sobre datos de la base de datos, USA las herramientas disponibles. NUNCA inventes nÃºmeros: solo reportas lo que la herramienta devuelva.
-- Solo puedes responder con datos que las herramientas te den (conteos de PQR, usuarios y comentarios). Si te preguntan algo que las herramientas no pueden responder, dilo amablemente y menciona quÃ© sÃ­ puedes consultar.
-- No reveles datos personales ni detalles internos del sistema.
+- Responde SIEMPRE en español, de forma breve y amable (máximo 3-4 frases; si muestras datos usa listas simples).
+- Para responder preguntas sobre el contenido de la base de datos, USA la herramienta "consultar_bd" con SQL de solo lectura. NUNCA inventes datos: solo reportas lo que devuelva la consulta.
+- Si tu consulta falla, corrígela e inténtala de nuevo (revisa nombres de columnas y comillas simples).
+- No reveles la columna password ni contraseñas en tus respuestas.
+- Solo consultas SELECT: nunca intentes modificar datos.
+
+ESQUEMA DE LA BASE DE DATOS (PostgreSQL):
+- users(id, username, password, nombre, email, role, activo) — role: ciudadano, operador, supervisor, admin
+- pqrs(id, titulo, categoria, descripcion, ubicacion, prioridad, estado, creado_por, creado_por_nombre, asignado_a, asignado_a_nombre, created_at, updated_at)
+- comments(id, pqr_id, user_id, user_name, content, created_at)
+- chat_sessions(id, user_id, user_name, status, agent_id, agent_name, created_at, updated_at) — status: en_cola, con_asesor, cerrada
+- chat_messages(id, session_id, sender, sender_name, content, created_at)
+
+VALORES DE LOS ENUM (guardados así en la base):
+- categoria: Infraestructura, Seguridad, Salud, Medio_Ambiente, Transito, Otros
+- estado: Recibida, En_revision, En_proceso, Resuelta, Rechazada
+- prioridad: Baja, Media, Alta, Urgente
+
+Ejemplos de consultas útiles:
+- SELECT * FROM pqrs WHERE estado='En_proceso' ORDER BY created_at DESC LIMIT 20
+- SELECT titulo, estado, creado_por_nombre FROM pqrs WHERE categoria='Salud'
+- SELECT * FROM comments WHERE pqr_id='PQR-005' ORDER BY created_at
+- SELECT role, count(*) FROM users GROUP BY role
+- SELECT p.titulo, count(c.id) FROM pqrs p LEFT JOIN comments c ON c.pqr_id=p.id GROUP BY p.id, p.titulo
+
+Las fechas se guardan como timestamp; usa DATE(created_at) para filtrar por día.
 """
 
 
-# --- Herramientas autorizadas (solo lectura). La IA NO puede ejecutar SQL libre,
-# --- solo estas funciones predefinidas (misma filosofÃ­a del tools.yaml de la prÃ¡ctica).
+# --- Herramientas de consulta (solo lectura).
 
 def contar_pqrs(db: Session) -> dict:
     return {"total_pqrs": db.query(Pqr).count()}
@@ -49,10 +72,24 @@ def contar_comentarios(db: Session) -> dict:
     return {"total_comentarios": db.query(Comment).count()}
 
 
+def consultar_bd(db: Session, sql: str) -> dict:
+    """Ejecuta una consulta SQL de SOLO LECTURA (SELECT) y devuelve las filas."""
+    sql_limpio = (sql or "").strip().rstrip(";").strip()
+    if not re.match(r"^(SELECT|WITH)\b", sql_limpio, re.IGNORECASE):
+        return {"error": "Solo se permiten consultas SELECT (solo lectura)"}
+    try:
+        filas = db.execute(text(sql_limpio)).mappings().all()
+        resultado = [dict(r) for r in filas[:50]]
+        return {"filas": resultado, "total_filas": len(filas)}
+    except Exception as e:
+        return {"error": f"Error en la consulta SQL: {e}"}
+
+
 TOOL_FUNCTIONS = {
     "contar_pqrs": contar_pqrs,
     "contar_usuarios": contar_usuarios,
     "contar_comentarios": contar_comentarios,
+    "consultar_bd": consultar_bd,
 }
 
 TOOL_DEFINITIONS = [
@@ -72,12 +109,29 @@ TOOL_DEFINITIONS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
-    {
+{
         "type": "function",
         "function": {
             "name": "contar_comentarios",
-            "description": "Cuenta cuÃ¡ntos comentarios de seguimiento hay en total en las PQR.",
+            "description": "Cuenta cuántos comentarios de seguimiento hay en total en las PQR.",
             "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "consultar_bd",
+            "description": "Ejecuta una consulta SQL de solo lectura (SELECT) sobre la base de datos para responder preguntas sobre el contenido real: PQR, usuarios, comentarios, sesiones de chat. Devuelve las filas encontradas.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sql": {
+                        "type": "string",
+                        "description": "Consulta SQL válida, ej: SELECT * FROM pqrs WHERE estado='En proceso' LIMIT 20",
+                    }
+                },
+                "required": ["sql"],
+            },
         },
     },
 ]
@@ -149,7 +203,7 @@ def _extract_tool_calls(message: dict) -> list[dict]:
 
 
 def _tool_result_message(call: dict, result: dict) -> dict:
-    content = json.dumps(result, ensure_ascii=False)
+    content = json.dumps(result, ensure_ascii=False, default=str)
     if using_groq():
         return {"role": "tool", "tool_call_id": call.get("id", ""), "content": content}
     return {"role": "tool", "name": call.get("name", ""), "content": content}
@@ -182,7 +236,7 @@ def assistant_query(data: AssistantQuery, db: Session = Depends(get_db)):
                 if func is None:
                     tool_result = {"error": f"herramienta '{name}' no existe"}
                 else:
-                    tool_result = func(db)
+                    tool_result = func(db, **call.get("arguments", {}))
                     tools_used.append(name)
                 messages.append(_tool_result_message(call, tool_result))
             message = _llm_chat(messages)
